@@ -1,0 +1,72 @@
+Tested and working with 27c6_530c on Fedora 35
+
+# Install default fprintd and pam
+sudo dnf install fprintd fprintd-pam
+
+# Build libfprint-tod
+# a. Install build dependencies
+sudo dnf install -y gcc gcc-c++ glib glib-devel glibc glibc-devel glib2 glib2-devel libusb libusb-devel nss-devel pixman pixman-devel libX11 libX11-devel libXv libXv-devel gtk-doc libgusb libgusb-devel gobject-introspection gobject-introspection-devel ninja-build git libgudev-devel cairo-devel
+# b. clone and build
+mkdir fingerprint && cd fingerprint
+git clone https://gitlab.freedesktop.org/3v1n0/libfprint.git
+git checkout tags/v1.94.1+tod1
+# use whatever is latest. check the AUR version info
+meson setup builddir/ && cd builddir/
+meson compile
+meson install
+
+# Overwrite the system libfprint with our version
+cp libfprint/libfprint-2.so.2.0.0 /usr/lib64/
+cp libfprint/tod/libfprint-2-tod.so /usr/lib64/
+cp libfprint/tod/libfprint-2-tod.so.1 /usr/lib64/
+
+# Get the Goodix libfprint driver/udev rules
+cd ~/fingerprint
+wget http://dell.archive.canonical.com/updates/pool/public/libf/libfprint-2-tod1-goodix/libfprint-2-tod1-goodix_0.0.4-0ubuntu1somerville1.tar.gz
+tar -xvf libfprint-2-tod1-goodix_0.0.4-0ubuntu1somerville1.tar.gz
+
+
+# Move the libfprint driver to where we think it should go
+```
+sudo mkdir -p /usr/lib/libfprint-2/tod-1/
+```
+
+```
+sudo mkdir -p /usr/local/lib64/libfprint-2/tod-1/
+```
+
+```
+sudo cp libfprint-2-tod1-goodix/usr/lib/x86_64-linux-gnu/libfprint-2/tod-1/libfprint-tod-goodix-53xc-0.0.4.so /usr/lib/libfprint-2/tod-1/
+```
+
+```
+sudo ln -s /usr/lib/libfprint-2/tod-1/libfprint-tod-goodix-53xc-0.0.4.so /usr/local/lib64/libfprint-2/tod-1/libfprint-tod-goodix-53xc-0.0.4.so
+```
+
+```
+sudo chmod 755 /usr/lib/libfprint-2/tod-1/libfprint-tod-goodix-53xc-0.0.4.so
+```
+
+```
+sudo cp libfprint-2-tod1-goodix/lib/udev/rules.d/60-libfprint-2-tod1-goodix.rules /lib/udev/rules.d/
+```
+
+```
+sudo mkdir -p /var/lib/fprint/goodix
+```
+
+# Add some things into the module alias file
+su -
+cat libfprint-2-tod1-goodix/debian/modaliases >> /lib/modules/$(uname -r)/modules.alias
+exit
+
+# Enable fingerprint reader for security
+sudo authselect enable-feature with-fingerprint
+sudo authselect apply-changes
+sudo systemctl enable fprintd
+sudo systemctl start fprintd
+
+
+
+# Based on this archived post on a blog somewhere
+# https://web.archive.org/web/20220309095606/https://aboutcher.co.uk/2020/10/goodix-fingerprint-reader-on-fedora-linux/
